@@ -11,6 +11,9 @@ st.title("📊 AI Analytics Assistant")
 st.write("Upload campaign data and explore it instantly.")
 
 
+st.write("analytics")
+
+
 def clean_column_names(df):
     df = df.copy()
     df.columns = (
