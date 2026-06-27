@@ -7,7 +7,7 @@ from openai import OpenAI
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
 
 st.set_page_config(
     page_title="AI Analytics Assistant",
@@ -18,7 +18,14 @@ st.set_page_config(
 st.title("📊 AI Analytics Assistant")
 st.write("Upload a CSV file and ask questions about your data.")
 
+if not api_key:
+    st.error("OPENAI_API_KEY is missing. Please add it to your .env file.")
+    st.stop()
+
+client = OpenAI(api_key=api_key)
+
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+
 
 def get_dataframe_summary(df: pd.DataFrame) -> str:
     summary = f"""
@@ -40,6 +47,7 @@ First 5 Rows:
 """
     return summary
 
+
 def ask_ai(question: str, df: pd.DataFrame) -> str:
     summary = get_dataframe_summary(df)
 
@@ -48,7 +56,11 @@ You are an expert data analyst.
 
 Use the dataset summary below to answer the user's question.
 Be clear, practical, and concise.
-If calculations are needed, explain the logic.
+
+Important:
+- You only have access to the dataset summary and first 5 rows.
+- Do not claim you calculated totals unless the value is visible in the summary.
+- If the question requires full-dataset calculation, say that Pandas analysis is needed.
 
 {summary}
 
@@ -62,6 +74,7 @@ User question:
     )
 
     return response.output_text
+
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -85,16 +98,59 @@ if uploaded_file is not None:
         st.metric("Missing Values", int(df.isnull().sum().sum()))
 
     st.subheader("Column Data Types")
-    st.dataframe(
-        pd.DataFrame({
-            "Column": df.columns,
-            "Data Type": df.dtypes.astype(str).values,
-            "Missing Values": df.isnull().sum().values
-        }),
-        use_container_width=True
-    )
+
+    column_info = pd.DataFrame({
+        "Column": df.columns,
+        "Data Type": df.dtypes.astype(str).values,
+        "Missing Values": df.isnull().sum().values
+    })
+
+    st.dataframe(column_info, use_container_width=True)
 
     numeric_columns = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+    category_columns = df.select_dtypes(include=["object"]).columns.tolist()
+
+    st.subheader("Quick Analysis")
+
+    if numeric_columns and category_columns:
+        selected_category = st.selectbox(
+            "Group by category",
+            category_columns
+        )
+
+        selected_metric = st.selectbox(
+            "Select metric",
+            numeric_columns
+        )
+
+        aggregation = st.selectbox(
+            "Select aggregation",
+            ["sum", "average", "count", "min", "max"]
+        )
+
+        if aggregation == "sum":
+            result = df.groupby(selected_category)[selected_metric].sum()
+        elif aggregation == "average":
+            result = df.groupby(selected_category)[selected_metric].mean()
+        elif aggregation == "count":
+            result = df.groupby(selected_category)[selected_metric].count()
+        elif aggregation == "min":
+            result = df.groupby(selected_category)[selected_metric].min()
+        else:
+            result = df.groupby(selected_category)[selected_metric].max()
+
+        result = (
+            result
+            .sort_values(ascending=False)
+            .reset_index()
+        )
+
+        st.dataframe(result, use_container_width=True)
+
+        st.bar_chart(result.set_index(selected_category))
+
+    else:
+        st.info("Need at least one text column and one numeric column for quick analysis.")
 
     if numeric_columns:
         st.subheader("Quick Chart")
@@ -113,7 +169,7 @@ if uploaded_file is not None:
 
     st.subheader("Ask AI About Your Data")
 
-    question = st.chat_input("Example: Which product has the highest sales?")
+    question = st.chat_input("Example: What cleaning steps would you recommend?")
 
     if question:
         with st.chat_message("user"):

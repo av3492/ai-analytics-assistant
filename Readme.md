@@ -10,6 +10,6 @@ An AI-powered analytics web application for exploring campaign data using natura
 - Pandas
 - Plotly
 
-## Status
 
-🚧 In Development
+
+A Streamlit application that allows users to upload CSV files, preview datasets, view basic profiling metrics, generate charts, and ask AI-powered questions about the data using the OpenAI API.
