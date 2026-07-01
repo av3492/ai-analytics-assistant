@@ -36,6 +36,8 @@ Columns: {df.shape[1]}
 Column Names:
 {list(df.columns)}
 
+
+
 Data Types:
 {df.dtypes.to_string()}
 
