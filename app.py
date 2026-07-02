@@ -50,6 +50,84 @@ First 5 Rows:
     return summary
 
 
+def answer_with_pandas(question: str, df: pd.DataFrame):
+    question_lower = question.lower()
+
+    numeric_columns = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+    category_columns = df.select_dtypes(include=["object", "category"]).columns.tolist()
+
+    if not numeric_columns:
+        return None
+
+    # Find metric column mentioned in question
+    selected_metric = None
+    for col in numeric_columns:
+        if col.lower() in question_lower:
+            selected_metric = col
+            break
+
+    # If no metric is mentioned, use first numeric column
+    if selected_metric is None:
+        selected_metric = numeric_columns[0]
+
+    # Find category column mentioned in question
+    selected_category = None
+    for col in category_columns:
+        if col.lower() in question_lower:
+            selected_category = col
+            break
+
+    # Top / highest analysis
+    if any(word in question_lower for word in ["highest", "top", "most", "largest"]):
+        if selected_category:
+            result = (
+                df.groupby(selected_category)[selected_metric]
+                .sum()
+                .sort_values(ascending=False)
+                .head(10)
+                .reset_index()
+            )
+            return result
+
+        result = df[selected_metric].sort_values(ascending=False).head(10).reset_index()
+        return result
+
+    # Average analysis
+    if "average" in question_lower or "mean" in question_lower:
+        if selected_category:
+            result = (
+                df.groupby(selected_category)[selected_metric]
+                .mean()
+                .sort_values(ascending=False)
+                .reset_index()
+            )
+            return result
+
+        return pd.DataFrame({
+            "Metric": [selected_metric],
+            "Average": [df[selected_metric].mean()]
+        })
+
+    # Sum / total analysis
+    if "total" in question_lower or "sum" in question_lower:
+        if selected_category:
+            result = (
+                df.groupby(selected_category)[selected_metric]
+                .sum()
+                .sort_values(ascending=False)
+                .reset_index()
+            )
+            return result
+
+        return pd.DataFrame({
+            "Metric": [selected_metric],
+            "Total": [df[selected_metric].sum()]
+        })
+
+    return None
+
+
+
 def ask_ai(question: str, df: pd.DataFrame) -> str:
     summary = get_dataframe_summary(df)
 
